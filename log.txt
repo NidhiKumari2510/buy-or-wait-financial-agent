@@ -1,0 +1,816 @@
+============================================================
+HACKERRANK ORCHESTRATE — AI DEVELOPMENT TRANSCRIPT
+============================================================
+
+PART 1 — CHATGPT
+AI TOOL: ChatGPT
+ROLE: Problem analysis, architecture, code review, debugging,
+      validation and submission guidance
+
+============================================================
+PART 1 — CHATGPT DEVELOPMENT TRANSCRIPT
+============================================================
+
+AI TOOL: ChatGPT
+ROLE: Problem analysis, architecture design, implementation
+review, debugging guidance, validation, and submission preparation
+
+NOTE:
+This section is a condensed transcript of the actual development
+conversation. It preserves the important development decisions,
+questions, reviews, and iterations rather than reproducing
+irrelevant conversational messages verbatim.
+
+
+------------------------------------------------------------
+1. PROBLEM UNDERSTANDING AND SOLUTION DESIGN
+------------------------------------------------------------
+
+USER:
+I am participating in the HackerRank Orchestrate September 2026
+hackathon for the "Buy or Wait?" problem. I need to build an
+AI-powered financial agent that determines whether a requested
+expense is affordable based on the user's financial profile,
+financial events, payment options, messages, and images.
+
+I want help designing a solution that can perform well in the
+AI Judge as well as on the actual dataset.
+
+CHATGPT:
+Recommended a hybrid architecture rather than allowing an LLM
+to directly make financial decisions.
+
+Core principle:
+
+    AI interprets evidence
+    Python calculates financial state
+    Python performs 90-day simulation
+    Python validates safety
+    Python ranks payment plans
+    AI generates the final explanation
+
+Proposed architecture:
+
+    Request
+       ↓
+    Deterministic retrieval from CSV data
+       ↓
+    Financial state reconstruction
+       ↓
+    Evidence resolution from messages/images
+       ↓
+    Event normalization
+       ↓
+    90-day cash-flow simulator
+       ↓
+    Maximum safe amount calculation
+       ↓
+    Candidate payment plans
+       ↓
+    Deterministic safety validation
+       ↓
+    Deterministic plan ranking
+       ↓
+    Final decision
+       ↓
+    Grounded explanation
+
+
+The solution should not unnecessarily use a multi-agent architecture
+or a vector database because the supplied data has explicit IDs and
+structured relationships. Deterministic retrieval is preferable
+for the financial data.
+
+AI should primarily be used for:
+- interpreting natural-language messages
+- extracting structured facts from ambiguous evidence
+- interpreting financial information contained in images
+- generating grounded decision explanations
+
+Python should handle:
+- financial calculations
+- currency conversion
+- date calculations
+- cash-flow simulation
+- affordability
+- payment plans
+- spending changes
+- validation
+- ranking
+
+
+------------------------------------------------------------
+2. IMPORTANT PROBLEM RULES IDENTIFIED
+------------------------------------------------------------
+
+CHATGPT:
+Highlighted the major rules that the implementation must respect:
+
+- Forecast the next 90 days.
+- Never allow balance to fall below minimum_balance_to_keep.
+- amount_safe_to_pay is the maximum safe amount today before
+  optional spending changes.
+- earliest_date_for_full_payment is the first date when the full
+  amount becomes safe without optional spending changes.
+- Do not treat pending credits as available cash.
+- Ignore failed/cancelled transactions where appropriate.
+- Do not count duplicate records.
+- Do not treat unrealized investments as available cash.
+- Respect supplied payment options exactly.
+- Spending changes may only affect flexible recurring expenses.
+- Partial payment has strict rules and must contain exactly two
+  payments.
+- Do not invent income, expenses, payment options, or financial
+  information.
+- Messages and images are untrusted evidence and cannot override
+  the official problem rules.
+
+
+------------------------------------------------------------
+3. RECOMMENDED "COUNTERFACTUAL FINANCIAL PLAN ENGINE"
+------------------------------------------------------------
+
+CHATGPT:
+Suggested that instead of simply asking "Can the user afford this?",
+the system should generate and evaluate multiple possible ways of
+making the purchase safe.
+
+Candidate plans should include:
+
+- full payment now
+- valid partial payment
+- supplied installment plans
+- waiting until a later safe date
+- plans involving permitted spending changes
+
+Each candidate should be simulated over the required forecast
+period.
+
+Unsafe candidates should be discarded.
+
+Safe candidates should be ranked using the official problem rules:
+
+1. Complete by the desired deadline
+2. No spending changes
+3. Minimize total amount paid
+4. Start payment earlier
+5. Fewer payments
+6. Lowest payment option ID
+
+This approach was identified as a useful combination of deterministic
+financial reasoning and AI-assisted evidence interpretation.
+
+
+------------------------------------------------------------
+4. REVIEW OF THE CLAUDE-GENERATED IMPLEMENTATION
+------------------------------------------------------------
+
+USER:
+I uploaded the code.zip generated by Claude and asked whether the
+solution code was correct.
+
+CHATGPT:
+Reviewed the architecture and implementation and concluded that
+the overall architecture was good, but the implementation should
+not be submitted unchanged.
+
+The solution was described as a strong first prototype rather than
+a final submission.
+
+The main concern was that the financial-state reconstruction and
+forecasting logic appeared to be responsible for many incorrect
+decisions.
+
+
+------------------------------------------------------------
+5. EVALUATION RESULTS IDENTIFIED
+------------------------------------------------------------
+
+CHATGPT:
+Reviewed the evaluation information produced by the implementation.
+
+The reported sample performance was approximately:
+
+    amount_safe_to_pay       16%
+    earliest_date             56%
+    payment_plan              68%
+    affordability_status      76%
+    recommended_method       84%
+    spending_changes          88%
+
+The particularly low accuracy for amount_safe_to_pay and
+earliest_date suggested that the primary weakness was financial
+cash-flow reconstruction and forecasting rather than the final
+candidate ranking logic.
+
+The recommendation was therefore NOT to redesign the entire system,
+but to make targeted improvements to the financial engine.
+
+
+------------------------------------------------------------
+6. MAIN CODE IMPROVEMENTS RECOMMENDED
+------------------------------------------------------------
+
+CHATGPT:
+Identified the following areas for improvement:
+
+A. Recurring-event reconstruction
+
+The existing heuristic relied too heavily on category, direction,
+similar amounts, and approximate intervals.
+
+Recommended distinguishing:
+- recurring expenses
+- recurring income
+- one-time purchases
+- transfers
+- refunds
+- unusual events
+- fixed expenses
+- flexible expenses
+
+The event type, category, description, dates, amounts, status,
+linked events, and flexibility should all be considered.
+
+No recurring event should be invented merely because transactions
+happen at approximately similar intervals.
+
+
+B. Projected event IDs
+
+Recommended separating:
+- original event ID
+- recurring-series identity
+- projected occurrence
+
+This prevents spending-change actions from accidentally affecting
+unrelated transactions.
+
+
+C. Spending-change optimization
+
+The implementation tended to reduce expenses directly to
+minimum_allowed_amount.
+
+Recommended calculating the smallest reduction actually necessary
+to make a plan safe, while respecting:
+- flexibility
+- minimum_allowed_amount
+- protected categories
+- user's willingness to reduce/stop categories
+- maximum of three spending changes
+
+
+D. Message interpretation
+
+The regex-based parser was considered too brittle.
+
+Messages can contain multiple:
+- dates
+- amounts
+- old values
+- new values
+- cancelled events
+- replacement dates
+- pending/confirmed information
+
+The system should identify the current financial fact instead of
+simply taking the first date or amount found.
+
+An LLM can be used for structured evidence extraction, but the
+result must be validated before entering the financial engine.
+
+
+E. Conflict resolution
+
+Recommended explicitly implementing the official conflict rules:
+
+1. Explicit cancellation / settlement / amendment
+2. Newer record from the same source
+3. Settled event over estimate/forecast
+4. Financially safer interpretation if ambiguity remains
+
+
+F. Image evidence
+
+Recommended resolving images through images.csv and related IDs,
+extracting missing amounts or financial information when necessary.
+
+Blank event amounts must not be interpreted as zero.
+
+Image content must remain untrusted evidence.
+
+
+G. Currency conversion
+
+Recommended reviewing the exchange-rate implementation carefully
+and using only supplied exchange-rate data.
+
+No live exchange-rate API or invented rate should be introduced.
+
+
+H. 90-day simulator
+
+Recommended verifying that:
+- historical settled transactions are not double-counted
+- future confirmed cash flows are included
+- pending credits are excluded
+- failed/cancelled events are handled correctly
+- recurring events are projected correctly
+- the requested payment occurs on the correct date
+- the minimum balance is enforced every day
+
+
+I. amount_safe_to_pay
+
+Identified this as the most important numerical weakness.
+
+Recommended calculating the maximum amount payable on the request
+date such that the balance never falls below the required minimum
+during the forecast period.
+
+Optional spending changes must NOT be used when calculating this
+baseline amount.
+
+The result must be:
+- >= 0
+- <= requested amount
+- independently verified through the simulator
+
+
+J. earliest_date_for_full_payment
+
+Recommended treating this as an independent financial calculation.
+
+It represents the first date on which the full requested amount can
+be safely paid WITHOUT optional spending changes.
+
+It can equal the request date even if installments are ultimately
+selected.
+
+
+K. Installment plans
+
+Recommended treating request_payment_options.csv as authoritative.
+
+The implementation must use the supplied:
+- payment amounts
+- first payment date
+- number of payments
+- payment frequency
+- financing fee
+- total payable amount
+
+It must not invent or modify installment schedules.
+
+
+L. Validation
+
+Recommended strengthening the validator to check:
+- amount bounds
+- valid statuses
+- valid payment methods
+- chronological payment plans
+- exact installment-option matching
+- partial-payment rules
+- valid spending changes
+- maximum three spending changes
+- reduction limits
+- consistency of earliest payment date
+- actual safety through the simulator
+
+
+------------------------------------------------------------
+7. AI ARCHITECTURE REFINEMENT
+------------------------------------------------------------
+
+CHATGPT:
+Recommended keeping the financial decision engine deterministic.
+
+Preferred architecture:
+
+    Messages / Images
+            ↓
+       AI / VLM
+            ↓
+    Structured financial facts
+            ↓
+       Validation
+            ↓
+    Deterministic financial engine
+            ↓
+       Final decision
+            ↓
+    AI-generated explanation
+
+The LLM should never directly determine affordability or override
+financial calculations.
+
+API keys should be supplied through environment variables and never
+hardcoded.
+
+
+------------------------------------------------------------
+8. TARGETED UPDATE REQUEST PROVIDED TO CLAUDE
+------------------------------------------------------------
+
+USER:
+Asked ChatGPT to provide a copy-paste-ready instruction for Claude
+to update only the parts of the implementation that need improvement.
+
+CHATGPT:
+Provided a detailed targeted-update prompt covering:
+
+- recurring event reconstruction
+- projected event IDs
+- spending-change optimization
+- message interpretation
+- conflict resolution
+- image evidence
+- currency conversion
+- 90-day simulation
+- amount_safe_to_pay
+- earliest_date_for_full_payment
+- installment validation
+- partial payment
+- plan generation/ranking
+- final validation
+- fail-safe behavior
+- AI evidence architecture
+- testing
+- evaluation
+
+The instruction explicitly told Claude not to:
+- hardcode the sample answers
+- modify the dataset
+- redesign the whole architecture
+- introduce unnecessary multi-agent or RAG complexity
+- allow the LLM to make financial decisions
+
+
+------------------------------------------------------------
+9. SUBMISSION PACKAGING REVIEW
+------------------------------------------------------------
+
+USER:
+Shared screenshots of the contents of code.zip and asked whether the
+structure was correct.
+
+CHATGPT:
+Reviewed the ZIP structure.
+
+The desired structure was confirmed as:
+
+    code/
+        main.py
+        config.py
+        data_loader.py
+        decision_engine.py
+        evidence_resolver.py
+        financial_state.py
+        models.py
+        planner.py
+        ranker.py
+        simulator.py
+        validator.py
+        requirements.txt
+        ai/
+        evaluation/
+        utils/
+
+The first ZIP contained __pycache__ files.
+
+CHATGPT:
+Recommended removing all __pycache__ directories and .pyc files
+before final packaging.
+
+The user then regenerated the ZIP without those cache files.
+
+CHATGPT:
+Confirmed that the resulting code.zip structure was appropriate,
+while emphasizing that the financial correctness of output.csv is
+more important than the ZIP structure.
+
+
+------------------------------------------------------------
+10. LOG.TXT / AI DEVELOPMENT TRANSCRIPT DISCUSSION
+------------------------------------------------------------
+
+USER:
+Asked how to complete log.txt because development involved normal
+Claude and ChatGPT rather than an integrated coding agent such as
+Claude Code.
+
+CHATGPT:
+Explained that the user does not need to have used Claude Code
+specifically. The relevant requirement is to provide the AI
+development conversation/transcript.
+
+Recommended combining the actual development conversations from
+the different AI tools into one transcript.
+
+Suggested structure:
+
+    PART 1 — ChatGPT
+    PART 2 — Claude
+
+The transcript should reflect the actual development process and
+should not contain fabricated conversations.
+
+Because manually copying every conversational turn would be
+impractical, the recommended approach was to have each AI prepare
+a concise transcript/summary of its own actual conversation, then
+merge the two sections into one log.txt.
+
+
+------------------------------------------------------------
+11. CURRENT DEVELOPMENT STATE
+------------------------------------------------------------
+
+At this point:
+
+- The code.zip structure has been corrected.
+- Python cache files were removed from the ZIP.
+- The financial implementation has been reviewed.
+- Several areas requiring improvement have been identified.
+- The output.csv still needs detailed correctness analysis against
+  the supplied dataset/reference examples.
+- The Claude conversation will be separately summarized by Claude.
+- This ChatGPT section is intended to be merged with the Claude
+  transcript to form the final log.txt.
+
+The development philosophy throughout the conversation has been:
+
+    Keep the architecture.
+    Improve correctness.
+    Use AI for interpretation.
+    Use deterministic Python for financial reasoning.
+    Validate every final decision.
+    Test against the provided examples.
+    Do not hardcode answers.
+    Do not invent financial information.
+
+
+============================================================
+END OF CHATGPT DEVELOPMENT TRANSCRIPT
+============================================================
+
+
+============================================================
+PART 2 — CLAUDE
+AI TOOL: Claude
+ROLE: Code generation, implementation, debugging and iteration
+
+NOTE:
+This is a condensed record of the actual Claude development
+conversation, preserving the major prompts, decisions,
+implementation steps, debugging iterations, and verification
+performed during development. It is not a verbatim export of
+every conversational turn.
+
+================================================================================
+AI DEVELOPMENT LOG -- Claude (claude.ai)
+Project: HackerRank Orchestrate Sept 2026 -- "Buy or Wait?"
+================================================================================
+
+--------------------------------------------------------------------------------
+SESSION CONTEXT
+--------------------------------------------------------------------------------
+User provided full project context: official repo
+(github.com/interviewstreet/hackerrank-orchestrate-september26), problem
+statement summary, dataset file list, required output schema, and explicit
+working constraints (work within existing cloned repo, no new repo structure,
+implement/debug/improve only, avoid hardcoding sample answers, keep solution
+explainable for AI Judge interview).
+
+Core architecture agreed on: hybrid AI + deterministic system.
+  AI INTERPRETS (messages/images) -> Python CALCULATES (currency, 90-day
+  forecast) -> deterministic rules VERIFY (bounds, plan validity) -> AI
+  EXPLAINS (template-based, not a second LLM call).
+No pure-LLM decision-making; all arithmetic/ranking/safety checks are
+deterministic Python.
+
+--------------------------------------------------------------------------------
+STEP 1 -- Schema verification against real repo (not assumptions)
+--------------------------------------------------------------------------------
+Before writing any code, fetched and read the official problem_statement.md,
+README.md, and cross-checked CSV headers directly from GitHub (rendered blob
+previews) rather than trusting a third-party doc summary blindly. Confirmed:
+  - Exact input schema for requests.csv
+  - Exact required output columns/order
+  - Allowed enum values for affordability_status, recommended_payment_method
+  - 90-Day Safety Check rules (ignore pending credits, cancelled/failed
+    transactions, duplicates, unrealized investments)
+  - Plan ranking rules (6-rule deterministic order)
+  - Partial payment vs installment rules
+Also cross-referenced a public fork's README (bikmeev/hackerrank-orchestrate-
+september26) documenting empirically-verified dataset quirks (exact-date
+currency lookups, USD/EUR hub currency structure, recurring-pattern
+detection pitfalls) -- treated as a hypothesis to verify against the user's
+own data, not as ground truth.
+
+--------------------------------------------------------------------------------
+STEP 2 -- Environment setup
+--------------------------------------------------------------------------------
+Guided user through:
+  - Creating a Python venv (py -3.12 -m venv .venv) on Windows/PowerShell
+  - Installing dependencies: pandas, anthropic, python-dotenv
+  - Explained "externally-managed-environment" pitfalls and venv rationale
+  - Created code/requirements.txt for reproducibility
+
+--------------------------------------------------------------------------------
+STEP 3 -- Built code/config.py and code/models.py
+--------------------------------------------------------------------------------
+Wrote typed dataclasses (Request, FinancialProfile, FinancialEvent,
+PaymentOption, Message, ImageEvidence, ExchangeRate, FinancialState) mapped
+1:1 to actual CSV columns, plus central config constants (paths, forecast
+window = 90 days, output schema, allowed enums).
+
+--------------------------------------------------------------------------------
+STEP 4 -- Built code/data_loader.py, ran against real dataset, iterated
+--------------------------------------------------------------------------------
+Wrote CSV loading/indexing layer with a debug summary printer
+(`python code/data_loader.py`) to verify assumptions against the REAL
+dataset rather than docs.
+
+Debugging iterations (real errors from user's terminal, root-caused each
+time rather than blind rewrites):
+  1. ImportError: cannot import name 'ExchangeRate' from 'models'
+     -> root cause: models.py was still empty (starter file, not yet
+        populated). Fixed by pasting full models.py content.
+  2. AttributeError: module 'config' has no attribute 'REQUESTS_CSV'
+     -> root cause: config.py was also still empty. Fixed by pasting full
+        config.py content.
+  3. ValueError: Required date field 'settlement_date' is blank for row
+     event_1856
+     -> genuine data finding: settlement_date CAN be blank (e.g. for some
+        pending events). Fixed by making settlement_date Optional[date] in
+        models.py and using _opt_date() instead of a required parser in
+        data_loader.py, rather than forcing a default.
+  4. AttributeError: module 'config' has no attribute 'EVENT_STATUS_CONFIRMED'
+     -> root cause: initial config.py guessed status values as
+        {settled, pending, confirmed} based on a third-party doc summary.
+        Running data_loader.py's debug summary against the REAL dataset
+        revealed the actual six status values: settled, pending, scheduled,
+        cancelled, failed, unrealized (no "confirmed" -- "scheduled" fills
+        that role). Also revealed direction includes "non_cash" (not just
+        credit/debit) and flexibility includes "reducible_or_stoppable"
+        (not just fixed/stoppable/reducible). Rewrote config.py to match
+        verified reality instead of assumed values.
+
+Final clean run confirmed: 250 requests, 275 profiles, 25342 events, 790
+payment options, 215 messages, 16 images, 134 exchange rates, exactly 16
+events with blank amount (1:1 match with 16 images). Exchange rate pairs
+confirmed as a hub structure: only EUR<->USD, EUR->ZAR, USD->IDR, USD->INR
+exist directly.
+
+--------------------------------------------------------------------------------
+STEP 5 -- Built code/utils/currency.py
+--------------------------------------------------------------------------------
+Currency conversion with BFS multi-hop routing over the small currency graph
+(handles pairs with no direct rate, e.g. ZAR->IDR, by routing through
+USD/EUR), exact-date match first, then nearest-preceding-date fallback with
+a logged warning, then inverse-of-reverse-pair as a last resort.
+
+--------------------------------------------------------------------------------
+STEP 6 -- Built code/financial_state.py
+--------------------------------------------------------------------------------
+Joins profile + events + payment options + messages/images per request_id
+into one FinancialState object; converts every event amount into the user's
+home_currency; leaves unresolved (blank) amounts as None rather than
+defaulting to 0, per problem_statement.md's explicit rule. Verified with a
+debug run against a real sample request (request_26, user_26, IDR,
+76 events, 0 unresolved amounts for that sample).
+
+--------------------------------------------------------------------------------
+STEP 7 -- Built code/simulator.py (90-Day Safety Check)
+--------------------------------------------------------------------------------
+Implements:
+  - detect_recurring_series(): heuristic recurring-pattern detection
+    (longest trailing regular-interval chain per category+direction,
+    tolerant of a genuine rate change via _trailing_consistent_amount)
+  - project_recurring(): projects a detected series forward beyond its last
+    known occurrence, within the 90-day window
+  - build_cash_flow_events(): applies status-based inclusion/exclusion
+    rules (always-exclude cancelled/failed/unrealized/non_cash; pending
+    credits excluded, pending debits reserved)
+  - simulate(): full 90-day balance projection given candidate payment(s),
+    returns safety verdict + minimum balance reached + date
+Verified with a debug run: baseline simulation for a real sample request
+correctly detected 8 recurring series (salary, rent, utilities, cloud
+storage, streaming, groceries, transport, dining) with sensible
+intervals/amounts.
+
+--------------------------------------------------------------------------------
+STEP 8 -- Built code/ai/client.py and code/evidence_resolver.py
+--------------------------------------------------------------------------------
+Anthropic API wrapper (model: claude-haiku-4-5-20251001, chosen as the
+cheapest current model since extraction tasks here are short-text/
+single-image -> fixed small JSON schema, not open-ended reasoning).
+Designed to degrade gracefully with no API key: get_client() returns None,
+extraction functions return (None, None), evidence_resolver.py logs a NOTE
+and skips rather than crashing.
+
+evidence_resolver.py handles two jobs:
+  1. Image-based amount resolution for blank-amount financial events
+  2. Message-based amendments (confirm/amend/cancel/delay/info_only) via a
+     narrow structured JSON extraction schema
+Explicit untrusted-content defense per problem_statement.md: the extraction
+schema can only express facts about ONE financial event -- structurally
+cannot express instructions to override output fields. System prompt also
+asks the model to flag (not obey) embedded instructions via an
+injection_attempt_detected field.
+
+User does not have an ANTHROPIC_API_KEY (cost constraint) -- confirmed this
+is a legitimate, defensible submission path: pipeline runs end-to-end
+without a key, blank-amount events are conservatively excluded rather than
+guessed, messages are left unapplied, and usage_report.md honestly reports
+zero LLM calls. No API key is ever included in the submission (kept in a
+gitignored .env file, outside code.zip).
+
+--------------------------------------------------------------------------------
+STEP 9 -- Built code/planner.py
+--------------------------------------------------------------------------------
+Deterministic candidate generation:
+  - compute_amount_safe_to_pay(): bisection search over simulate()
+  - compute_earliest_full_payment_date(): forward scan across the 90-day
+    window
+  - Spending-change selection: greedy, largest-saving-first, respects
+    user's protect/reduce/stop category preferences and per-event
+    minimum_allowed_amount floors, capped at 3 changes
+  - Candidate builders for full_payment, full_payment-with-spending-changes,
+    partial_payment (exactly 2 payments per spec), installments (one per
+    matching supplied payment_option, respecting max_installment_months),
+    and wait (only generated when strictly safer/later than immediate
+    full_payment, avoiding a redundant-candidate bug flagged from prior
+    community experience with this same problem)
+
+--------------------------------------------------------------------------------
+STEP 10 -- Built code/ranker.py and code/validator.py
+--------------------------------------------------------------------------------
+ranker.py: implements the exact 6-rule deterministic ranking order from
+problem_statement.md (deadline completion, no spending changes, minimize
+total paid, start earlier, fewer payments, lowest payment_option_id
+tiebreak) plus eligibility filtering against payment_methods_user_will_
+consider.
+
+validator.py: post-hoc deterministic checks (amount bounds, valid enums,
+payment_plan format/chronology, partial_payment exactly-2-payments and
+sum-matches-requested_amount rule, installments matching a real supplied
+payment_option_id, spending-changes stop/reduce mutual exclusivity, max 3
+changes). Logs violations loudly during development without blocking row
+generation, so every request_id always gets an output row.
+
+--------------------------------------------------------------------------------
+STEP 11 -- Built code/decision_engine.py and code/main.py
+--------------------------------------------------------------------------------
+decision_engine.py: orchestrates one request end-to-end (build state ->
+resolve evidence -> generate candidates -> rank -> pick winner -> format
+output row -> validate -> template-based explanation). Explanation is
+template-based rather than an extra LLM call, specifically to guarantee the
+explanation text can never drift from the actual computed numbers.
+
+main.py: loops over all requests in dataset/requests.csv, writes output.csv
+to the repository root (not dataset/output.csv, per submission rules),
+wraps each request in a try/except with a safe not_affordable fallback row
+so one bad request can never crash the whole run, and writes
+evaluation/usage_report.md summarizing model/calls/tokens/estimated cost
+for the actual run that produced output.csv (correctly reports zero calls
+given no API key was configured).
+
+--------------------------------------------------------------------------------
+STEP 12 -- End-to-end verification
+--------------------------------------------------------------------------------
+  - Ran `python code/main.py --limit 5`: 5/5 processed, output.csv rows
+    inspected and confirmed correct across full_payment, not_affordable,
+    and installments cases (correct formatting, empty
+    earliest_date_for_full_payment when never safe within 90 days per spec,
+    correctly chronological pipe-delimited installment schedules).
+  - Ran `python code/main.py` (full dataset): 250/250 rows written in 7.9s,
+    zero crashes, zero validation issues. evaluation/usage_report.md
+    generated correctly.
+  - Confirmed NOTE/WARNING log lines during the run were expected, not
+    errors: blank-amount events correctly skipped due to no API key;
+    nearest-preceding currency rate warnings correctly triggered only for
+    synthetic dates generated by the recurring-event projector (dates with
+    no corresponding real row in exchange_rates.csv, as expected).
+  - Recommended manual spot-check against dataset/sample_requests.csv
+    before submission as the primary accuracy signal, given time
+    constraints prevented deeper automated evaluation.
+
+--------------------------------------------------------------------------------
+STEP 13 -- Submission packaging guidance
+--------------------------------------------------------------------------------
+Advised on code.zip contents (include code/ and evaluation/usage_report.md;
+exclude dataset/, .venv/, .env, __pycache__/) and provided the
+Compress-Archive PowerShell command to package cleanly. Confirmed
+output.csv at repo root and log.txt requirements per AGENTS.md.
+
+================================================================================
+END OF CLAUDE SESSION LOG
+================================================================================
+
+
+============================================================
+END OF AI DEVELOPMENT TRANSCRIPT
+============================================================
