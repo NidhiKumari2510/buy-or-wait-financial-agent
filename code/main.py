@@ -23,11 +23,8 @@ import data_loader
 from decision_engine import decide
 from evidence_resolver import UsageTotals
 
-# Haiku 4.5 pricing (USD per million tokens) -- update if Anthropic's pricing
-# page shows different numbers at submission time; this is only used for the
-# cost ESTIMATE in usage_report.md, never for anything decision-affecting.
-INPUT_COST_PER_MTOK = 1.00
-OUTPUT_COST_PER_MTOK = 5.00
+INPUT_COST_PER_MTOK = 0.30
+OUTPUT_COST_PER_MTOK = 2.50
 
 
 def main():
@@ -92,8 +89,8 @@ def _write_usage_report(usage: UsageTotals) -> None:
 
 ## Model
 
-- Provider: Anthropic
-- Model: claude-haiku-4-5-20251001
+- Provider: Google Gemini
+- Model: gemini-3.6-flash
 - Used for: extracting amounts from linked images (blank financial_events),
   and structured amendments (confirm/amend/cancel/delay) from user messages.
   All arithmetic, currency conversion, 90-day simulation, plan generation,
